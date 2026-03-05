@@ -1,0 +1,47 @@
+// Exemplo 5 — Expressoes e precedencia de operadores
+// Demonstra: todos os operadores, precedencia, agrupamento,
+//            operadores unarios, atribuicao encadeada
+
+// Aritmeticos
+var a = 2 + 3 * 4;          // 14  (multiplicacao primeiro)
+var b = (2 + 3) * 4;        // 20  (parenteses alteram precedencia)
+var c = 10 / 4;             // 2   (divisao inteira)
+var d = 10 % 3;             // 1   (modulo)
+var e = -5 + 3;             // -2  (unario negativo)
+
+print(a);
+print(b);
+print(c);
+print(d);
+print(e);
+
+// Relacionais
+var x = 5;
+var y = 10;
+print(x < y);
+print(x > y);
+print(x <= 5);
+print(x >= 6);
+print(x == 5);
+print(x != 5);
+
+// Booleanos
+var p = true;
+var q = false;
+print(p && q);          // false
+print(p || q);          // true
+print(!p);              // false
+print(!q);              // true
+print(p && !q);         // true
+print(!p || !q);        // true
+
+// Atribuicao encadeada (direita para esquerda)
+var m = 0;
+var n = 0;
+m = n = 42;
+print(m);    // 42
+print(n);    // 42
+
+// Expressao complexa
+var resultado = (2 + 3) * (10 - 4) / 2 % 7;
+print(resultado);

@@ -1,0 +1,752 @@
+/*
+ * JSLang.jj - Gramatica JavaCC para a Linguagem JSLang
+ *
+ * Linguagem de programacao baseada em JavaScript com suporte a:
+ *   - Tipos basicos  : strings, inteiros e reais
+ *   - Variaveis      : declaracao (var / let) e atribuicao
+ *   - Funcoes        : declaracao e chamada
+ *   - Repeticao      : while
+ *   - Condicional    : if (simples) e if-else (composta)
+ *   - E/S            : print(expr) e read(variavel)
+ *   - Expressoes     : operadores aritmeticos, relacionais e booleanos
+ *
+ * Projeto de Compiladores - 2025.1
+ */
+
+options {
+    STATIC              = false;
+    IGNORE_CASE         = false;
+    UNICODE_INPUT       = true;
+    DEBUG_PARSER        = false;
+    DEBUG_TOKEN_MANAGER = false;
+}
+
+/* ============================================================
+ *  CLASSE JAVA PRINCIPAL
+ * ============================================================ */
+PARSER_BEGIN(JSLang)
+
+package compiler;
+
+import java.io.*;
+import java.util.Scanner;
+
+/**
+ * Compilador JSLang - Analisadores Lexico e Sintatico.
+ * Projeto de Compiladores 2025.1.
+ */
+public class JSLang {
+
+    /* ----------------------------------------------------------
+     *  Controle da arvore sintatica (por instancia do parser)
+     * ---------------------------------------------------------- */
+
+    /** Quando true, as regras imprimem a arvore sintatica. */
+    private boolean verbose = false;
+
+    /** Nivel de indentacao atual. */
+    private int indent = 0;
+
+    /**
+     * Entra em um no da arvore: imprime o nome do no e incrementa o nivel.
+     * No-op quando verbose=false.
+     */
+    private void enter(String name) {
+        if (!verbose) return;
+        printIndent();
+        System.out.println("[" + name + "]");
+        indent += 2;
+    }
+
+    /**
+     * Sai de um no da arvore: decrementa o nivel.
+     * No-op quando verbose=false.
+     */
+    private void leave() {
+        if (!verbose) return;
+        if (indent >= 2) indent -= 2;
+    }
+
+    /**
+     * Exibe uma informacao dentro do no atual.
+     * No-op quando verbose=false.
+     */
+    private void info(String msg) {
+        if (!verbose) return;
+        printIndent();
+        System.out.println(msg);
+    }
+
+    /** Imprime espacos de acordo com o nivel de indentacao. */
+    private void printIndent() {
+        for (int i = 0; i < indent; i++) System.out.print(' ');
+    }
+
+    /* ----------------------------------------------------------
+     *  Menu principal
+     * ---------------------------------------------------------- */
+
+    public static void main(String[] args) {
+        // Modo direto (linha de comando): analisa o arquivo sem menu
+        if (args.length > 0) {
+            analyzeFile(args[0], false);
+            return;
+        }
+        // Modo interativo: exibe o menu
+        runMenu();
+    }
+
+    private static void runMenu() {
+        Scanner sc = new Scanner(System.in);
+        while (true) {
+            printBanner();
+            System.out.print("  Opcao: ");
+            String choice = sc.nextLine().trim();
+            System.out.println();
+            switch (choice) {
+                case "1": menuAnalyzeFile(sc, false); break;
+                case "2": menuAnalyzeFile(sc, true);  break;
+                case "3": menuListTokens(sc);          break;
+                case "4": menuAnalyzeCode(sc);         break;
+                case "0":
+                    System.out.println("  Encerrando. Ate logo!");
+                    System.out.println();
+                    return;
+                default:
+                    System.out.println("  Opcao invalida. Tente novamente.");
+                    waitEnter(sc);
+            }
+        }
+    }
+
+    private static void printBanner() {
+        System.out.println();
+        System.out.println("  +------------------------------------------+");
+        System.out.println("  |       JSLang Compiler  -  2025.1         |");
+        System.out.println("  +------------------------------------------+");
+        System.out.println("  |  1. Analisar arquivo (.jsl)              |");
+        System.out.println("  |  2. Exibir arvore sintatica de arquivo   |");
+        System.out.println("  |  3. Listar tokens (analise lexica)       |");
+        System.out.println("  |  4. Analisar codigo digitado             |");
+        System.out.println("  |  0. Sair                                 |");
+        System.out.println("  +------------------------------------------+");
+        System.out.println();
+    }
+
+    /* ----------------------------------------------------------
+     *  Handlers de cada opcao do menu
+     * ---------------------------------------------------------- */
+
+    private static void menuAnalyzeFile(Scanner sc, boolean showTree) {
+        System.out.print("  Caminho do arquivo: ");
+        String path = sc.nextLine().trim();
+        System.out.println();
+        analyzeFile(path, showTree);
+        waitEnter(sc);
+    }
+
+    private static void menuListTokens(Scanner sc) {
+        System.out.print("  Caminho do arquivo: ");
+        String path = sc.nextLine().trim();
+        System.out.println();
+        listTokens(path);
+        waitEnter(sc);
+    }
+
+    private static void menuAnalyzeCode(Scanner sc) {
+        System.out.println("  Digite o codigo JSLang.");
+        System.out.println("  (Deixe uma linha em branco para encerrar a entrada)");
+        System.out.println();
+        StringBuilder sb = new StringBuilder();
+        while (true) {
+            String line = sc.nextLine();
+            if (line.isEmpty()) break;
+            sb.append(line).append('\n');
+        }
+        System.out.println();
+        if (sb.length() == 0) {
+            System.out.println("  Nenhum codigo informado.");
+        } else {
+            analyzeString(sb.toString(), true);
+        }
+        waitEnter(sc);
+    }
+
+    private static void waitEnter(Scanner sc) {
+        System.out.println();
+        System.out.print("  Pressione Enter para continuar...");
+        sc.nextLine();
+    }
+
+    /* ----------------------------------------------------------
+     *  Analise de arquivo
+     * ---------------------------------------------------------- */
+
+    static void analyzeFile(String path, boolean showTree) {
+        FileInputStream fis;
+        try {
+            fis = new FileInputStream(path);
+        } catch (FileNotFoundException e) {
+            System.out.println("  [ERRO] Arquivo nao encontrado: " + path);
+            return;
+        }
+
+        JSLang parser = new JSLang(fis);
+        parser.verbose = showTree;
+
+        if (showTree) {
+            System.out.println("  === ARVORE SINTATICA: " + path + " ===");
+            System.out.println();
+        } else {
+            System.out.println("  Analisando: " + path);
+        }
+
+        try {
+            parser.Program();
+            System.out.println();
+            System.out.println("  [OK] Analise concluida com SUCESSO.");
+        } catch (ParseException e) {
+            System.out.println();
+            System.out.println("  [ERRO SINTATICO] " + e.getMessage());
+        } catch (TokenMgrError e) {
+            System.out.println();
+            System.out.println("  [ERRO LEXICO] " + e.getMessage());
+        }
+    }
+
+    /* ----------------------------------------------------------
+     *  Analise de codigo digitado
+     * ---------------------------------------------------------- */
+
+    static void analyzeString(String code, boolean showTree) {
+        JSLang parser = new JSLang(new StringReader(code));
+        parser.verbose = showTree;
+
+        if (showTree) {
+            System.out.println("  === ARVORE SINTATICA ===");
+            System.out.println();
+        }
+
+        try {
+            parser.Program();
+            System.out.println();
+            System.out.println("  [OK] Analise concluida com SUCESSO.");
+        } catch (ParseException e) {
+            System.out.println();
+            System.out.println("  [ERRO SINTATICO] " + e.getMessage());
+        } catch (TokenMgrError e) {
+            System.out.println();
+            System.out.println("  [ERRO LEXICO] " + e.getMessage());
+        }
+    }
+
+    /* ----------------------------------------------------------
+     *  Listagem de tokens (analise lexica)
+     * ---------------------------------------------------------- */
+
+    static void listTokens(String path) {
+        FileInputStream fis;
+        try {
+            fis = new FileInputStream(path);
+        } catch (FileNotFoundException e) {
+            System.out.println("  [ERRO] Arquivo nao encontrado: " + path);
+            return;
+        }
+
+        System.out.println("  === ANALISE LEXICA: " + path + " ===");
+        System.out.println();
+        System.out.printf("  %-6s %-6s %-22s %s%n", "Linha", "Col", "Token", "Lexema");
+        System.out.println("  " + repeat('-', 58));
+
+        JSLangTokenManager tm;
+        try {
+            tm = new JSLangTokenManager(
+                    new SimpleCharStream(new InputStreamReader(fis, "UTF-8")));
+        } catch (UnsupportedEncodingException e) {
+            tm = new JSLangTokenManager(new SimpleCharStream(fis));
+        }
+
+        int count = 0;
+        try {
+            Token t;
+            while ((t = tm.getNextToken()).kind != 0) { // 0 = EOF
+                System.out.printf("  %-6d %-6d %-22s \"%s\"%n",
+                        t.beginLine, t.beginColumn,
+                        tokenName(t.kind), t.image);
+                count++;
+            }
+        } catch (TokenMgrError e) {
+            System.out.println();
+            System.out.println("  [ERRO LEXICO] " + e.getMessage());
+        }
+
+        System.out.println("  " + repeat('-', 58));
+        System.out.println("  Total de tokens: " + count);
+    }
+
+    /** Converte o codigo numerico de um token para seu nome legivel. */
+    static String tokenName(int kind) {
+        switch (kind) {
+            case JSLangConstants.KW_FUNCTION: return "KW_FUNCTION";
+            case JSLangConstants.KW_VAR:      return "KW_VAR";
+            case JSLangConstants.KW_LET:      return "KW_LET";
+            case JSLangConstants.KW_IF:       return "KW_IF";
+            case JSLangConstants.KW_ELSE:     return "KW_ELSE";
+            case JSLangConstants.KW_WHILE:    return "KW_WHILE";
+            case JSLangConstants.KW_RETURN:   return "KW_RETURN";
+            case JSLangConstants.KW_TRUE:     return "KW_TRUE";
+            case JSLangConstants.KW_FALSE:    return "KW_FALSE";
+            case JSLangConstants.KW_PRINT:    return "KW_PRINT";
+            case JSLangConstants.KW_READ:     return "KW_READ";
+            case JSLangConstants.LIT_REAL:    return "LIT_REAL";
+            case JSLangConstants.LIT_INT:     return "LIT_INT";
+            case JSLangConstants.LIT_STRING:  return "LIT_STRING";
+            case JSLangConstants.IDENT:       return "IDENT";
+            case JSLangConstants.OP_EQ:       return "OP_EQ";
+            case JSLangConstants.OP_NEQ:      return "OP_NEQ";
+            case JSLangConstants.OP_LE:       return "OP_LE";
+            case JSLangConstants.OP_GE:       return "OP_GE";
+            case JSLangConstants.OP_LT:       return "OP_LT";
+            case JSLangConstants.OP_GT:       return "OP_GT";
+            case JSLangConstants.OP_AND:      return "OP_AND";
+            case JSLangConstants.OP_OR:       return "OP_OR";
+            case JSLangConstants.OP_NOT:      return "OP_NOT";
+            case JSLangConstants.OP_ADD:      return "OP_ADD";
+            case JSLangConstants.OP_SUB:      return "OP_SUB";
+            case JSLangConstants.OP_MUL:      return "OP_MUL";
+            case JSLangConstants.OP_DIV:      return "OP_DIV";
+            case JSLangConstants.OP_MOD:      return "OP_MOD";
+            case JSLangConstants.ASSIGN:      return "ASSIGN";
+            case JSLangConstants.LPAREN:      return "LPAREN";
+            case JSLangConstants.RPAREN:      return "RPAREN";
+            case JSLangConstants.LBRACE:      return "LBRACE";
+            case JSLangConstants.RBRACE:      return "RBRACE";
+            case JSLangConstants.SEMI:        return "SEMI";
+            case JSLangConstants.COMMA:       return "COMMA";
+            default: return "TOKEN(" + kind + ")";
+        }
+    }
+
+    private static String repeat(char c, int n) {
+        StringBuilder sb = new StringBuilder(n);
+        for (int i = 0; i < n; i++) sb.append(c);
+        return sb.toString();
+    }
+}
+
+PARSER_END(JSLang)
+
+
+/* ============================================================
+ *  ANALISADOR LEXICO
+ * ============================================================ */
+
+/* -- Espacos em branco -------------------------------------- */
+SKIP : { " " | "\t" | "\r" | "\n" }
+
+/* -- Comentarios de linha ----------------------------------- */
+SKIP : { < COMMENT_LINE : "//" (~["\n", "\r"])* > }
+
+/* -- Comentarios de bloco com estado BLOCK_COMMENT --------- */
+MORE  :                      { "/*"  : BLOCK_COMMENT }
+<BLOCK_COMMENT> MORE  : { < ~[] > }
+<BLOCK_COMMENT> SKIP  : { "*/" : DEFAULT }
+
+/* -- Palavras-chave ----------------------------------------- */
+TOKEN : {
+    < KW_FUNCTION : "function" >
+  | < KW_VAR      : "var"      >
+  | < KW_LET      : "let"      >
+  | < KW_IF       : "if"       >
+  | < KW_ELSE     : "else"     >
+  | < KW_WHILE    : "while"    >
+  | < KW_RETURN   : "return"   >
+  | < KW_TRUE     : "true"     >
+  | < KW_FALSE    : "false"    >
+  | < KW_PRINT    : "print"    >
+  | < KW_READ     : "read"     >
+}
+
+/* -- Literal real (ANTES do inteiro para prioridade) -------- */
+TOKEN : { < LIT_REAL : (["0"-"9"])+ "." (["0"-"9"])+ > }
+
+/* -- Literal inteiro ---------------------------------------- */
+TOKEN : { < LIT_INT : (["0"-"9"])+ > }
+
+/* -- Literal string com sequencias de escape ---------------- */
+TOKEN : {
+    < LIT_STRING :
+        "\""
+        ( ~["\"", "\\", "\n", "\r"]
+        | "\\" ["n","t","r","\\","\"","'","0"]
+        )*
+        "\""
+      | "'"
+        ( ~["'", "\\", "\n", "\r"]
+        | "\\" ["n","t","r","\\","\"","'","0"]
+        )*
+        "'"
+    >
+}
+
+/* -- Identificadores (apos palavras-chave) ------------------ */
+TOKEN : {
+    < IDENT : ["a"-"z","A"-"Z","_"] (["a"-"z","A"-"Z","0"-"9","_"])* >
+}
+
+/* -- Operadores e pontuacao (2 chars antes de 1 char) ------- */
+TOKEN : {
+    < OP_EQ  : "==" > | < OP_NEQ : "!=" >
+  | < OP_LE  : "<=" > | < OP_GE  : ">=" >
+  | < OP_LT  : "<"  > | < OP_GT  : ">"  >
+  | < OP_AND : "&&" > | < OP_OR  : "||" > | < OP_NOT : "!"  >
+  | < OP_ADD : "+"  > | < OP_SUB : "-"  >
+  | < OP_MUL : "*"  > | < OP_DIV : "/"  > | < OP_MOD : "%"  >
+  | < ASSIGN : "="  >
+  | < LPAREN : "("  > | < RPAREN : ")"  >
+  | < LBRACE : "{"  > | < RBRACE : "}"  >
+  | < SEMI   : ";"  > | < COMMA  : ","  >
+}
+
+
+/* ============================================================
+ *  ANALISADOR SINTATICO  (com acoes semanticas para arvore)
+ * ============================================================
+ *
+ *  Regras de instrucao : void  — usam enter/info/leave
+ *  Regras de expressao : String — retornam representacao textual
+ *
+ *  Precedencia de expressoes (maior -> menor):
+ *    PrimaryExpr   literals, id, chamada, (expr)
+ *    UnaryExpr     !  -
+ *    MulExpr       *  /  %
+ *    AddExpr       +  -
+ *    RelExpr       <  >  <=  >=
+ *    EqExpr        ==  !=
+ *    AndExpr       &&
+ *    OrExpr        ||
+ *    Expr          =  (atribuicao, direita-para-esquerda)
+ */
+
+/* -- Program ----------------------------------------------- */
+
+/**
+ * Program -> ( FuncDecl | Statement )* EOF
+ */
+void Program() :
+{}
+{
+    { enter("Program"); }
+    ( LOOKAHEAD(<KW_FUNCTION>) FuncDecl()
+    | Statement()
+    )*
+    <EOF>
+    { leave(); }
+}
+
+/* -- Declaracao de funcao ---------------------------------- */
+
+/**
+ * FuncDecl -> "function" IDENT "(" [ ParamList ] ")" Block
+ */
+void FuncDecl() :
+{ Token name; String params = ""; }
+{
+    <KW_FUNCTION> name=<IDENT> <LPAREN>
+    [ params=ParamList() ]
+    <RPAREN>
+    { enter("FuncDecl: " + name.image + "(" + params + ")"); }
+    Block()
+    { leave(); }
+}
+
+/**
+ * ParamList -> IDENT ( "," IDENT )*
+ * Retorna os nomes dos parametros como string separada por virgula.
+ */
+String ParamList() :
+{ Token t; String s; }
+{
+    t=<IDENT> { s = t.image; }
+    ( <COMMA> t=<IDENT> { s += ", " + t.image; } )*
+    { return s; }
+}
+
+/* -- Bloco ------------------------------------------------- */
+
+/**
+ * Block -> "{" Statement* "}"
+ */
+void Block() :
+{}
+{
+    { enter("Block"); }
+    <LBRACE> ( Statement() )* <RBRACE>
+    { leave(); }
+}
+
+/* -- Instrucoes -------------------------------------------- */
+
+/**
+ * Statement -> VarDecl | IfStmt | WhileStmt | ReturnStmt
+ *            | PrintStmt | ReadStmt | Block | ExprStmt
+ */
+void Statement() :
+{}
+{
+    LOOKAHEAD(<KW_VAR> | <KW_LET>) VarDecl()
+  | LOOKAHEAD(<KW_IF>)             IfStmt()
+  | LOOKAHEAD(<KW_WHILE>)          WhileStmt()
+  | LOOKAHEAD(<KW_RETURN>)         ReturnStmt()
+  | LOOKAHEAD(<KW_PRINT>)          PrintStmt()
+  | LOOKAHEAD(<KW_READ>)           ReadStmt()
+  | LOOKAHEAD(<LBRACE>)            Block()
+  | ExprStmt()
+}
+
+/**
+ * VarDecl -> ( "var" | "let" ) IDENT [ "=" Expr ] ";"
+ */
+void VarDecl() :
+{ Token kw; Token name; String init = null; }
+{
+    ( kw=<KW_VAR> | kw=<KW_LET> )
+    name=<IDENT>
+    [ <ASSIGN> init=Expr() ]
+    <SEMI>
+    {
+        String label = "VarDecl: " + kw.image + " " + name.image;
+        if (init != null) label += " = " + init;
+        enter(label); leave();
+    }
+}
+
+/**
+ * IfStmt -> "if" "(" Expr ")" Block [ "else" ( IfStmt | Block ) ]
+ *
+ * Estrutura condicional simples e composta.
+ * LOOKAHEAD(<KW_ELSE>) resolve o problema do dangling-else (greedy).
+ */
+void IfStmt() :
+{ String cond; }
+{
+    { enter("IfStmt"); }
+    <KW_IF> <LPAREN> cond=Expr() <RPAREN>
+    { info("cond: " + cond); }
+    Block()
+    [ LOOKAHEAD(<KW_ELSE>)
+      { info("else"); }
+      <KW_ELSE>
+      ( LOOKAHEAD(<KW_IF>) IfStmt() | Block() )
+    ]
+    { leave(); }
+}
+
+/**
+ * WhileStmt -> "while" "(" Expr ")" Block
+ */
+void WhileStmt() :
+{ String cond; }
+{
+    { enter("WhileStmt"); }
+    <KW_WHILE> <LPAREN> cond=Expr() <RPAREN>
+    { info("cond: " + cond); }
+    Block()
+    { leave(); }
+}
+
+/**
+ * ReturnStmt -> "return" [ Expr ] ";"
+ *
+ * LOOKAHEAD sobre FIRST(Expr) para distinguir "return;" de "return expr;".
+ */
+void ReturnStmt() :
+{ String val = null; }
+{
+    <KW_RETURN>
+    [ LOOKAHEAD( <LIT_INT>  | <LIT_REAL>  | <LIT_STRING>
+               | <KW_TRUE>  | <KW_FALSE>
+               | <LPAREN>   | <IDENT>
+               | <OP_NOT>   | <OP_SUB> )
+      val=Expr()
+    ]
+    <SEMI>
+    {
+        String label = "ReturnStmt: " + (val != null ? val : "(void)");
+        enter(label); leave();
+    }
+}
+
+/**
+ * PrintStmt -> "print" "(" Expr ")" ";"
+ */
+void PrintStmt() :
+{ String expr; }
+{
+    <KW_PRINT> <LPAREN> expr=Expr() <RPAREN> <SEMI>
+    { enter("PrintStmt: " + expr); leave(); }
+}
+
+/**
+ * ReadStmt -> "read" "(" IDENT ")" ";"
+ */
+void ReadStmt() :
+{ Token name; }
+{
+    <KW_READ> <LPAREN> name=<IDENT> <RPAREN> <SEMI>
+    { enter("ReadStmt: " + name.image); leave(); }
+}
+
+/**
+ * ExprStmt -> Expr ";"
+ * Cobre atribuicoes (x = 10;) e chamadas de funcao (f(args);).
+ */
+void ExprStmt() :
+{ String expr; }
+{
+    expr=Expr() <SEMI>
+    { enter("ExprStmt: " + expr); leave(); }
+}
+
+/* -- Expressoes -------------------------------------------- */
+
+/**
+ * Expr -> IDENT "=" Expr      (atribuicao, direita-para-esquerda)
+ *       | OrExpr
+ */
+String Expr() :
+{ Token t; String rhs; String lhs; }
+{
+    LOOKAHEAD(<IDENT> <ASSIGN>) t=<IDENT> <ASSIGN> rhs=Expr()
+    { return t.image + " = " + rhs; }
+  | lhs=OrExpr()
+    { return lhs; }
+}
+
+/**
+ * OrExpr -> AndExpr ( "||" AndExpr )*
+ */
+String OrExpr() :
+{ String s; String r; }
+{
+    s=AndExpr()
+    ( <OP_OR> r=AndExpr()
+      { s = s + " || " + r; }
+    )*
+    { return s; }
+}
+
+/**
+ * AndExpr -> EqExpr ( "&&" EqExpr )*
+ */
+String AndExpr() :
+{ String s; String r; }
+{
+    s=EqExpr()
+    ( <OP_AND> r=EqExpr()
+      { s = s + " && " + r; }
+    )*
+    { return s; }
+}
+
+/**
+ * EqExpr -> RelExpr ( ( "==" | "!=" ) RelExpr )*
+ */
+String EqExpr() :
+{ String s; String r; Token op; }
+{
+    s=RelExpr()
+    ( ( op=<OP_EQ> | op=<OP_NEQ> ) r=RelExpr()
+      { s = s + " " + op.image + " " + r; }
+    )*
+    { return s; }
+}
+
+/**
+ * RelExpr -> AddExpr ( ( "<" | ">" | "<=" | ">=" ) AddExpr )*
+ */
+String RelExpr() :
+{ String s; String r; Token op; }
+{
+    s=AddExpr()
+    ( ( op=<OP_LT> | op=<OP_GT> | op=<OP_LE> | op=<OP_GE> ) r=AddExpr()
+      { s = s + " " + op.image + " " + r; }
+    )*
+    { return s; }
+}
+
+/**
+ * AddExpr -> MulExpr ( ( "+" | "-" ) MulExpr )*
+ */
+String AddExpr() :
+{ String s; String r; Token op; }
+{
+    s=MulExpr()
+    ( ( op=<OP_ADD> | op=<OP_SUB> ) r=MulExpr()
+      { s = s + " " + op.image + " " + r; }
+    )*
+    { return s; }
+}
+
+/**
+ * MulExpr -> UnaryExpr ( ( "*" | "/" | "%" ) UnaryExpr )*
+ */
+String MulExpr() :
+{ String s; String r; Token op; }
+{
+    s=UnaryExpr()
+    ( ( op=<OP_MUL> | op=<OP_DIV> | op=<OP_MOD> ) r=UnaryExpr()
+      { s = s + " " + op.image + " " + r; }
+    )*
+    { return s; }
+}
+
+/**
+ * UnaryExpr -> "!" UnaryExpr | "-" UnaryExpr | PrimaryExpr
+ */
+String UnaryExpr() :
+{ String s; }
+{
+    <OP_NOT> s=UnaryExpr() { return "!" + s; }
+  | <OP_SUB> s=UnaryExpr() { return "-" + s; }
+  | s=PrimaryExpr()         { return s; }
+}
+
+/**
+ * PrimaryExpr -> LIT_INT | LIT_REAL | LIT_STRING | true | false
+ *              | "(" Expr ")"
+ *              | IDENT "(" [ ArgList ] ")"   (chamada de funcao)
+ *              | IDENT                        (variavel)
+ */
+String PrimaryExpr() :
+{ Token t; String s; String args; }
+{
+    t=<LIT_INT>    { return t.image; }
+  | t=<LIT_REAL>   { return t.image; }
+  | t=<LIT_STRING> { return t.image; }
+  | <KW_TRUE>      { return "true"; }
+  | <KW_FALSE>     { return "false"; }
+  | <LPAREN> s=Expr() <RPAREN>
+    { return "(" + s + ")"; }
+  | LOOKAHEAD(<IDENT> <LPAREN>)
+    t=<IDENT> <LPAREN> { args = ""; }
+    [ args=ArgList() ]
+    <RPAREN>
+    { return t.image + "(" + args + ")"; }
+  | t=<IDENT>
+    { return t.image; }
+}
+
+/**
+ * ArgList -> Expr ( "," Expr )*
+ * Retorna os argumentos como string separada por virgula.
+ */
+String ArgList() :
+{ String s; String r; }
+{
+    s=Expr()
+    ( <COMMA> r=Expr()
+      { s += ", " + r; }
+    )*
+    { return s; }
+}

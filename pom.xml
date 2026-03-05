@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>br.edu.compiladores</groupId>
+    <artifactId>jslang-compiler</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>JSLang Compiler</name>
+    <description>
+        Analisador lexico e sintatico da linguagem JSLang —
+        linguagem baseada em JavaScript, implementada com JavaCC.
+        Projeto de Compiladores 2025.1.
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+    </properties>
+
+    <build>
+        <plugins>
+
+            <!-- ================================================
+                 Plugin JavaCC: gera o parser a partir do .jj
+                 ================================================
+                 O plugin lê todos os arquivos .jj em
+                   src/main/javacc/
+                 e gera as classes Java correspondentes em
+                   target/generated-sources/javacc/
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>javacc-maven-plugin</artifactId>
+                <version>3.0.1</version>
+                <executions>
+                    <execution>
+                        <id>javacc-generate</id>
+                        <goals>
+                            <goal>javacc</goal>
+                        </goals>
+                        <configuration>
+                            <!-- diretório com os arquivos .jj -->
+                            <sourceDirectory>
+                                ${project.basedir}/src/main/javacc
+                            </sourceDirectory>
+                            <!-- diretório de saída das classes geradas -->
+                            <outputDirectory>
+                                ${project.build.directory}/generated-sources/javacc
+                            </outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- ================================================
+                 Plugin Compiler: compila as classes geradas
+                 ================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>8</source>
+                    <target>8</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- ================================================
+                 Plugin JAR: cria um fat-jar executável
+                 ================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>compiler.JSLang</mainClass>
+                        </manifest>
+                    </archive>
+                    <finalName>jslang-compiler</finalName>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>

@@ -1,0 +1,18 @@
+// Exemplo 1 — Ola Mundo e tipos basicos
+// Demonstra: strings, inteiros, reais, print, variaveis
+
+var saudacao = "Ola, Mundo!";
+print(saudacao);
+
+var inteiro = 42;
+var real    = 3.14;
+var booleano = true;
+
+print(inteiro);
+print(real);
+print(booleano);
+
+// Concatenacao / operacao com strings nao suportada diretamente,
+// mas expressoes aritmeticas funcionam:
+var dobro = inteiro * 2;
+print(dobro);

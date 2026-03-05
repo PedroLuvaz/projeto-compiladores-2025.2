@@ -1,0 +1,10 @@
+compiler\JSLangTokenManager.class
+compiler\JSLang$JJCalls.class
+compiler\TokenMgrError.class
+compiler\JSLang$1.class
+compiler\Token.class
+compiler\JSLang$LookaheadSuccess.class
+compiler\ParseException.class
+compiler\SimpleCharStream.class
+compiler\JSLang.class
+compiler\JSLangConstants.class

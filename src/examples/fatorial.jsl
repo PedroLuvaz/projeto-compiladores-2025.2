@@ -1,0 +1,18 @@
+// Exemplo 2 — Fatorial recursivo
+// Demonstra: declaracao de funcao, chamada de funcao,
+//            condicional simples e composta, return, expressoes
+
+function fatorial(n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * fatorial(n - 1);
+    }
+}
+
+// Calcula e exibe fatorial de 0 a 10
+var i = 0;
+while (i <= 10) {
+    print(fatorial(i));
+    i = i + 1;
+}

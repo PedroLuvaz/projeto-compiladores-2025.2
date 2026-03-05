@@ -1,0 +1,69 @@
+// Exemplo 4 — Condicionais e operadores
+// Demonstra: if simples, if-else, if-else if-else,
+//            todos os operadores relacionais e booleanos,
+//            entrada (read) e saida (print)
+
+function classificarNota(nota) {
+    if (nota >= 9.0) {
+        print("A");
+    } else if (nota >= 7.0) {
+        print("B");
+    } else if (nota >= 5.0) {
+        print("C");
+    } else {
+        print("F");
+    }
+}
+
+function ehPar(n) {
+    if (n % 2 == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function dentroDoIntervalo(x, minVal, maxVal) {
+    return x >= minVal && x <= maxVal;
+}
+
+// Teste dos condicionais
+classificarNota(9.5);
+classificarNota(7.2);
+classificarNota(5.0);
+classificarNota(3.8);
+
+// Teste de operadores booleanos
+var a = 10;
+var b = 20;
+var c = 10;
+
+if (a == c) {
+    print("a igual a c");
+}
+
+if (a != b) {
+    print("a diferente de b");
+}
+
+if (a < b && a > 0) {
+    print("a esta entre 0 e b");
+}
+
+if (a == 0 || b == 20) {
+    print("ao menos uma condicao verdadeira");
+}
+
+var flag = false;
+if (!flag) {
+    print("flag era falso");
+}
+
+// Entrada e saida
+var numero = 0;
+read(numero);
+if (ehPar(numero)) {
+    print("par");
+} else {
+    print("impar");
+}
